@@ -1,0 +1,13 @@
+<idea-plugin>
+    <id>org.jetbrains.plugins.savepoint</id>
+    <name>Project Save Points</name>
+    <vendor>JetBrains</vendor>
+
+    <depends>com.intellij.modules.platform</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <toolWindow id="SavePointToolWindow"
+                    factoryClass="org.jetbrains.plugins.savepoint.toolWindow.SavePointToolWindowFactory"
+                    anchor="bottom"/>
+    </extensions>
+</idea-plugin>
