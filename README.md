@@ -14,6 +14,7 @@ Your plugin description goes here.
 - **Create Save Points:** Snapshot your project at any time with custom names and descriptions, providing a secure backup for any stage of your work.
 - **Rollback Save Points:** Effortlessly revert to a previous save point, allowing you to undo changes and recover a stable state of your project.
 - **Undo Rollback:** Quickly restore the project to its state before the last rollback, giving you flexibility in managing your project's evolution.
+
 ---
 ## 🚀 Installation
 
@@ -26,12 +27,13 @@ Your plugin description goes here.
 
 ### Manual Installation
 
-1. Download the latest `.jar` file from the [Download the latest .jar file]([https://drive.google.com/file/d/1_FZYxZ_yT-YmCyBPO5ddsjrOczMsODuB/view?usp=sharing](https://drive.usercontent.google.com/u/0/uc?id=1_FZYxZ_yT-YmCyBPO5ddsjrOczMsODuB&export=download))
+1. Download the latest `.jar` file from the [Download the latest .jar file](https://drive.google.com/uc?export=download&id=1_FZYxZ_yT-YmCyBPO5ddsjrOczMsODuB).
 2. Open IntelliJ IDEA.
 3. Go to **Settings** > **Plugins**.
 4. Click on the **Install Plugin from Disk** button.
 5. Select the downloaded `.jar` file and click **OK**.
 6. Restart IntelliJ IDEA if prompted.
+
 ---
 ## 🛡️ License
 
