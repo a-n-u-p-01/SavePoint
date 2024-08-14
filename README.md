@@ -26,7 +26,7 @@ Your plugin description goes here.
 
 ### Manual Installation
 
-1. Download the latest `.jar` file from the [Download the latest .jar file](https://drive.google.com/file/d/1_FZYxZ_yT-YmCyBPO5ddsjrOczMsODuB/view?usp=sharing)
+1. Download the latest `.jar` file from the [Download the latest .jar file]([https://drive.google.com/file/d/1_FZYxZ_yT-YmCyBPO5ddsjrOczMsODuB/view?usp=sharing](https://drive.usercontent.google.com/u/0/uc?id=1_FZYxZ_yT-YmCyBPO5ddsjrOczMsODuB&export=download))
 2. Open IntelliJ IDEA.
 3. Go to **Settings** > **Plugins**.
 4. Click on the **Install Plugin from Disk** button.
