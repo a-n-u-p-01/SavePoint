@@ -4,220 +4,266 @@ import com.intellij.openapi.components.Service
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.vfs.VirtualFileManager
+import org.jetbrains.plugins.savepoint.utils.AdvancedFileCopier
 import java.io.*
-import java.nio.file.Files
-import java.nio.file.StandardCopyOption
-import java.util.zip.ZipEntry
-import java.util.zip.ZipInputStream
-import java.util.zip.ZipOutputStream
+import java.nio.file.*
+import java.text.SimpleDateFormat
+import java.util.*
+import java.util.concurrent.ExecutionException
+import java.util.concurrent.Executors
+import java.util.concurrent.Future
+import java.util.logging.Logger
+import java.util.zip.*
+import javax.swing.JOptionPane
+import javax.swing.SwingUtilities
 
 @Service(Service.Level.PROJECT)
 class SavePointService(private val project: Project) {
 
     private val savePointDir: File = File(project.basePath, ".savepoints")
+    private val logger: Logger = Logger.getLogger(SavePointService::class.java.name)
+    private val fileCopier = AdvancedFileCopier(logger)
+    private val executor = Executors.newSingleThreadExecutor()
 
     init {
-        try {
-            if (!savePointDir.exists()) {
-                if (!savePointDir.mkdirs()) { // Create directories including any missing parent directories
-                    Messages.showErrorDialog("Failed to create save point directory.", "Error")
-                }
-            }
-        } catch (e: IOException) {
-            Messages.showErrorDialog("Failed to initialize save point directory: ${e.message}", "Error")
+        if (!savePointDir.exists()) {
+            savePointDir.mkdirs()
         }
     }
 
-    private fun getProjectRoot(): File? {
-        // Use the basePath from the project to determine the root directory
-        return project.basePath?.let { File(it) }
+    private fun getProjectRoot(): File? = project.basePath?.let { File(it) }
+
+    private fun getTimestamp(): String = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
+
+    private fun getProjectBackupDir(): File {
+        val backupDirPath = File(System.getProperty("user.home"), "ProjectBackups/${project.name}")
+        if (!backupDirPath.exists()) {
+            backupDirPath.mkdirs()
+        }
+        return backupDirPath
     }
 
-    fun addSavePoint(message: String) {
-        val rootDir = getProjectRoot() ?: run {
-            Messages.showErrorDialog("Could not find the root directory of the project.", "Error")
-            return
+    fun addSavePoint(name: String, message: String): Boolean {
+        Messages.showInfoMessage("Click ok then wait. It may take few seconds depend on file size..", "Back Up Current State")
+        backupProject()
+        Messages.showInfoMessage("Click ok then wait. It may take few seconds depend on file size..", "Adding Save Point")
+        val rootDir = getProjectRoot() ?: return false
+        val srcDir = File(rootDir, "src")
+
+        if (!srcDir.exists()) {
+            Messages.showErrorDialog("The 'src' directory does not exist.", "Error")
+            return false
         }
 
-        val savePointName = message
-        if (savePointName.isNullOrEmpty()) {
-            Messages.showErrorDialog("Save point name cannot be empty.", "Error")
-            return
+        val savePointDir = File(rootDir, ".savepoints")
+        if (!savePointDir.exists() && !savePointDir.mkdirs()) {
+            Messages.showErrorDialog("Failed to create '.savepoint' directory.", "Error")
+            return false
+        }
+
+        val timestamp = getTimestamp()
+        val savePointFile = File(savePointDir, "$name.zip")
+        val messageFile = File(savePointDir, "$name.txt")
+
+        if (savePointFile.exists()) {
+            Messages.showErrorDialog("Save point '$name' already exists.", "Error")
+            return false
         }
 
         try {
-            // Construct the path to the 'src' directory/file
-            val srcFile = File(rootDir, "src")
+            // Perform compression in a separate thread to avoid blocking the UI thread
+            val future: Future<*> = executor.submit {
+                    createZip(savePointFile, srcDir.toPath())
+                messageFile.writeText("$timestamp\n$message")
 
-            // Debug: Print out paths
-            println("Root Directory: ${rootDir.absolutePath}")
-            println("Source File: ${srcFile.absolutePath}")
-
-            // Check if 'src' exists
-            if (!srcFile.exists()) {
-                Messages.showErrorDialog("The 'src' directory or file does not exist in the root directory.", "Error")
-                return
             }
-
-            // Prepare for zipping
-            val savePointFile = File(savePointDir, "$savePointName.zip")
-            if (savePointFile.exists()) {
-                Messages.showErrorDialog("Save point '$savePointName' already exists.", "Error")
-                return
-            }
-
-            val tempFile = File.createTempFile("savepoint", ".zip")
-
-            // Zip the 'src' directory or file as a top-level entry
-            ZipOutputStream(FileOutputStream(tempFile)).use { zipOut ->
-                if (srcFile.isDirectory) {
-                    // Add 'src' directory itself to the zip
-                    zipOut.putNextEntry(ZipEntry("src/"))
-                    zipOut.closeEntry()
-
-                    // Add contents of 'src' directory
-                    Files.walk(srcFile.toPath()).forEach { path ->
-                        val file = path.toFile()
-                        if (!file.isDirectory) {
-                            val entryName = "src/" + srcFile.toPath().relativize(path).toString().replace("\\", "/")
-                            zipOut.putNextEntry(ZipEntry(entryName))
-
-                            FileInputStream(file).use { fis ->
-                                fis.copyTo(zipOut)
-                            }
-
-                            zipOut.closeEntry()
-                        }
-                    }
-                } else {
-                    // Add 'src' file as a top-level entry
-                    zipOut.putNextEntry(ZipEntry("src/${srcFile.name}"))
-                    FileInputStream(srcFile).use { fis ->
-                        fis.copyTo(zipOut)
-                    }
-                    zipOut.closeEntry()
-                }
-            }
-
-            // Move the temp zip file to the save point directory
-            Files.move(tempFile.toPath(), savePointFile.toPath(), StandardCopyOption.REPLACE_EXISTING)
-
-            Messages.showInfoMessage("Save point '$savePointName' created successfully.", "Save Point Added")
+            future.get() // Wait for the task to complete
         } catch (e: IOException) {
             Messages.showErrorDialog("Failed to create save point: ${e.message}", "Error")
+            return false
+        } catch (e: InterruptedException) {
+            Messages.showErrorDialog("Save point creation was interrupted.", "Error")
+            return false
+        } catch (e: ExecutionException) {
+            Messages.showErrorDialog("Failed to create save point: ${e.message}", "Error")
+            return false
+        }
+        return true
+
+    }
+
+    private fun createZip(zipFile: File, sourceDir: Path) {
+        ZipOutputStream(BufferedOutputStream(FileOutputStream(zipFile))).use { zipOut ->
+            Files.walk(sourceDir).forEach { path ->
+                val file = path.toFile()
+                val entryName = sourceDir.relativize(path).toString().replace("\\", "/")
+                if (file.isDirectory) {
+                    zipOut.putNextEntry(ZipEntry("$entryName/"))
+                } else {
+                    zipOut.putNextEntry(ZipEntry(entryName))
+                    FileInputStream(file).use { fis -> fis.copyTo(zipOut) }
+                }
+                zipOut.closeEntry()
+
+            }
         }
     }
 
-
+    private fun extractZip(zipFile: File, targetDir: File) {
+        ZipInputStream(BufferedInputStream(FileInputStream(zipFile))).use { zipIn ->
+            generateSequence { zipIn.nextEntry }.forEach { entry ->
+                val file = File(targetDir, entry.name)
+                if (entry.isDirectory) {
+                    file.mkdirs()
+                } else {
+                    file.parentFile.mkdirs()
+                    FileOutputStream(file).use { fos -> zipIn.copyTo(fos) }
+                }
+            }
+        }
+    }
 
     fun rollbackToSavePoint(savePointName: String) {
-        val savePoints = getSavePoints()
-        println("Available save points: ${savePoints.map { it.nameWithoutExtension }}")
-
-        val savePointFile = savePoints.find { it.nameWithoutExtension == savePointName } ?: run {
-            println("Save point '$savePointName' not found.")
+        Messages.showInfoMessage("Click ok then wait. It may take few seconds depend on file size..", "Roll Back")
+        val savePointFile = File(savePointDir, "$savePointName.zip")
+        if (!savePointFile.exists()) {
             Messages.showErrorDialog("Save point '$savePointName' not found.", "Error")
             return
         }
 
+        val timestamp = getTimestamp()
+        val rootDir = getProjectRoot() ?: return
+        val targetDir = File(rootDir, "src")
+
         try {
-            val rootDir = getProjectRoot() ?: throw IOException("Project base path is null.")
-            val targetDir = rootDir // Use the project root directory as the target directory
+            val preRollbackFile = File(savePointDir, "preRollback.zip")
+            val preRollbackMessageFile = File(savePointDir, "preRollback.txt")
 
-            // Debugging
-            println("Target directory: ${targetDir.absolutePath}")
+            // Backup current state before rollback
+            val future: Future<*> = executor.submit {
+                createZip(preRollbackFile, targetDir.toPath())
+                preRollbackMessageFile.writeText("$timestamp $savePointName")
+            }
+            future.get() // Wait for the task to complete
 
-            // Delete the `src` file or directory within the target directory if it exists
-            val srcFile = File(targetDir, "src")
-            if (srcFile.exists()) {
-                println("Deleting 'src' directory/file: ${srcFile.absolutePath}")
-                deleteFile(srcFile)
+            if (targetDir.exists()) {
+                deleteFile(targetDir)
             }
 
-            // Unzip the file into the target directory
-            println("Unzipping file: ${savePointFile.absolutePath} to ${targetDir.absolutePath}")
-            unzipFile(savePointFile, targetDir)
+            extractZip(savePointFile, targetDir)
 
-            // Refresh the virtual file system
             VirtualFileManager.getInstance().refreshWithoutFileWatcher(true)
-
-            Messages.showInfoMessage("Rolled back to save point: $savePointName", "Rollback")
         } catch (e: IOException) {
             Messages.showErrorDialog("Failed to rollback to save point: ${e.message}", "Error")
-            e.printStackTrace()
+        } catch (e: InterruptedException) {
+            Messages.showErrorDialog("Rollback was interrupted.", "Error")
+        } catch (e: ExecutionException) {
+            Messages.showErrorDialog("Failed to rollback to save point: ${e.message}", "Error")
         }
+    }
+
+    fun undoRollback(): Boolean {
+
+        val preRollbackFile = File(savePointDir, "preRollback.zip")
+        if (!preRollbackFile.exists()) {
+            Messages.showWarningDialog("No rollback to undo.", "Undo Rollback")
+            return false
+        }
+        Messages.showInfoMessage("Click ok then wait. It may take few seconds depend on file size..", "Roll Back")
+        val rootDir = getProjectRoot() ?: return false
+        val targetDir = File(rootDir, "src")
+
+        try {
+            val future: Future<*> = executor.submit {
+                if (targetDir.exists()) {
+                    deleteFile(targetDir)
+                }
+                extractZip(preRollbackFile, targetDir)
+            }
+            future.get() // Wait for the task to complete
+
+            VirtualFileManager.getInstance().refreshWithoutFileWatcher(true)
+//            Messages.showInfoMessage("Rollback undone.", "Undo Rollback")
+            preRollbackFile.delete()
+            File(savePointDir, "preRollback.txt").delete()
+        } catch (e: IOException) {
+            Messages.showErrorDialog("Failed to undo rollback: ${e.message}", "Error")
+            return false
+        } catch (e: InterruptedException) {
+            Messages.showErrorDialog("Undo rollback was interrupted.", "Error")
+            return false
+        } catch (e: ExecutionException) {
+            Messages.showErrorDialog("Failed to undo rollback: ${e.message}", "Error")
+            return false
+        }
+        return true
     }
 
     private fun deleteFile(file: File) {
         if (file.isDirectory) {
-            file.listFiles()?.forEach { child ->
-                deleteFile(child) // Delete contents of the directory
-            }
+            file.listFiles()?.forEach { deleteFile(it) }
         }
-        if (!file.delete()) {
-            println("Failed to delete: ${file.absolutePath}")
+        file.delete()
+    }
+
+    fun getSavePoints(): List<Pair<String, String>> {
+        return savePointDir.listFiles()
+            ?.filter { it.extension == "zip" }
+            ?.map { file ->
+                val nameWithoutExt = file.nameWithoutExtension
+                val messageFile = File(savePointDir, "$nameWithoutExt.txt")
+                val timestamp = messageFile.readLines().firstOrNull() ?: "Unknown"
+                val message = messageFile.readText().substringAfter('\n').takeIf { it.isNotBlank() } ?: ""
+                Pair(nameWithoutExt, "$timestamp\n$message")
+            }
+            ?.sortedByDescending { it.second.substringBefore('\n') }
+            ?: emptyList()
+    }
+
+    fun deleteSavePoint(name: String) {
+        val savePointZipFile = File(savePointDir, "$name.zip")
+        val savePointTxtFile = File(savePointDir, "$name.txt")
+
+        if (!savePointZipFile.exists() && savePointZipFile.delete()) {
+            Messages.showErrorDialog("Failed to delete save point '$name'.", "Error")
+        }
+
+        if (savePointTxtFile.exists()) {
+            savePointTxtFile.delete()
         }
     }
 
-    private fun unzipFile(zipFile: File, targetDir: File) {
-        try {
-            if (!zipFile.exists()) {
-                throw IOException("Zip file does not exist: ${zipFile.absolutePath}")
-            }
-
-            if (!targetDir.exists() && !targetDir.mkdirs()) {
-                throw IOException("Failed to create target directory: ${targetDir.absolutePath}")
-            }
-
-            ZipInputStream(BufferedInputStream(FileInputStream(zipFile))).use { zipInput ->
-                var entry: ZipEntry? = zipInput.nextEntry
-                while (entry != null) {
-                    val file = File(targetDir, entry.name)
-
-                    if (entry.isDirectory) {
-                        if (!file.mkdirs()) {
-                            println("Failed to create directory: ${file.absolutePath}")
-                        }
-                    } else {
-                        // Ensure parent directories exist
-                        file.parentFile?.mkdirs()
-                        FileOutputStream(file).use { fos ->
-                            zipInput.copyTo(fos)
-                        }
-                    }
-                    zipInput.closeEntry()
-                    entry = zipInput.nextEntry
-                }
-            }
-        } catch (e: IOException) {
-            Messages.showErrorDialog("Failed to unzip file: ${e.message}", "Error")
-            e.printStackTrace()
-        }
-    }
-
-
-    fun showSavePoints() {
-        val savePoints = getSavePoints()
-        if (savePoints.isEmpty()) {
-            Messages.showInfoMessage("No save points available.", "Save Points")
+    fun backupProject() {
+        val rootDir = getProjectRoot() ?: run {
+            Messages.showErrorDialog("Failed to get project root.", "Error")
             return
         }
 
-        val savePointNames = savePoints.map { it.nameWithoutExtension }
-        Messages.showMessageDialog(
-            savePointNames.joinToString("\n"),
-            "Available Save Points",
-            Messages.getInformationIcon()
-        )
-    }
 
-    fun getSavePoints(): List<File> {
-        return try {
-            val files = savePointDir.listFiles()
-            files?.filter { it.isFile && it.name.endsWith(".zip") }?.sortedBy { it.name } ?: emptyList()
+        val timestamp = getTimestamp()
+        val backupDir = getProjectBackupDir()
+        val backupFile = File(backupDir, "backup")
+
+        try {
+            if (backupFile.exists()) {
+                backupFile.deleteRecursively()
+            }
+            backupFile.mkdirs()
+
+            // Perform backup in a separate thread to avoid blocking the UI thread
+            val future: Future<*> = executor.submit {
+                fileCopier.copyDirectory(rootDir.toPath(), backupFile.toPath())
+            }
+            future.get() // Wait for the task to complete
+            val backupLocationMessage = "Project backed up successfully to '${backupFile.absolutePath}'."
+            Messages.showInfoMessage(backupLocationMessage, "Backup Successful")
+            VirtualFileManager.getInstance().refreshWithoutFileWatcher(true)
         } catch (e: IOException) {
-            Messages.showErrorDialog("Failed to list save points: ${e.message}", "Error")
-            emptyList()
+            Messages.showErrorDialog("Failed to backup project: ${e.message}", "Error")
+        } catch (e: InterruptedException) {
+            Messages.showErrorDialog("Backup was interrupted.", "Error")
+        } catch (e: ExecutionException) {
+            Messages.showErrorDialog("Failed to backup project: ${e.message}", "Error")
         }
     }
 }
