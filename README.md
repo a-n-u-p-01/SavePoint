@@ -42,7 +42,7 @@ The Save Point Plugin enhances project management by allowing developers to crea
 
 ### Manual Installation
 
-1. Download the latest `.jar` file from the [Download the latest .jar file](https://drive.google.com/uc?export=download&id=1_FZYxZ_yT-YmCyBPO5ddsjrOczMsODuB).
+1. Download the latest `.jar` file from the [Download the latest .jar file]([https://drive.google.com/uc?export=download&id=1_FZYxZ_yT-YmCyBPO5ddsjrOczMsODuB](https://plugins.jetbrains.com/plugin/download?rel=true&updateId=588449)).
 2. Open IntelliJ IDEA.
 3. Go to **Settings** > **Plugins**.
 4. Click on the **Install Plugin from Disk** button.
