@@ -1,4 +1,4 @@
-package org.jetbrains.plugins.savepoint.listeners
+package org.anupam.plugins.savepoint.listeners
 
 import com.intellij.openapi.application.ApplicationActivationListener
 import com.intellij.openapi.diagnostic.thisLogger

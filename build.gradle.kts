@@ -16,6 +16,7 @@ version = providers.gradleProperty("pluginVersion").get()
 
 // Set the JVM language level used to build the project.
 kotlin {
+    jvmToolchain(22)
     jvmToolchain(17)
 }
 
@@ -33,8 +34,8 @@ repositories {
 dependencies {
     testImplementation(libs.junit)
     implementation("commons-io:commons-io:2.11.0")
-    implementation ("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.2")
-    implementation ("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.7.2")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.2")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.7.2")
     // IntelliJ Platform Gradle Plugin Dependencies Extension
     intellijPlatform {
         create(providers.gradleProperty("platformType"), providers.gradleProperty("platformVersion"))
@@ -48,6 +49,7 @@ dependencies {
         zipSigner()
         testFramework(TestFrameworkType.Platform)
     }
+    implementation(kotlin("stdlib-jdk8"))
 }
 
 // Configure IntelliJ Platform Gradle Plugin

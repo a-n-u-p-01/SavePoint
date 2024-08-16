@@ -1,23 +1,46 @@
 <idea-plugin>
     <!-- Plugin ID and metadata -->
-    <id>org.jetbrains.plugins.savepoint</id>
-    <name>Project Save Points</name>
+    <id>org.anupam.plugins.savepoint</id>
+    <name>Save Point</name>
     <vendor>Anupam Tarai</vendor>
 
-    <!-- Declare dependency on IntelliJ Platform -->
+    <!-- Plugin version -->
+    <version>1.0.0</version>
+
+
+    <!-- Plugin description -->
+    <description>
+        The SavePoint plugin enhances project management by allowing developers to create, view, and manage save points within their projects. Key features include:
+        - Add custom save points with unique names and messages.
+        - Rollback to any previously created save point.
+        - Undo the most recent rollback operation.
+        - Delete save points that are no longer needed.
+        - View and manage all save points through an intuitive tool window interface.
+        - Automatic refresh of the IDE to reflect changes immediately.
+    </description>
+
+    <!-- Change notes -->
+    <change-notes>
+        Initial release of SavePoint Plugin:
+        - Save points creation, rollback, and deletion.
+        - Undo rollback functionality.
+        - Integrated tool window for easy management.
+        - IDE refresh feature.
+    </change-notes>
+
+    <!-- Dependencies -->
     <depends>com.intellij.modules.platform</depends>
 
-    <!-- Specify the supported IntelliJ IDEA versions -->
-    <idea-version since-build="233.0" until-build="242.*"/>
+    <!-- Compatible versions -->
+    <idea-version since-build="234.0" until-build="242.*"/>
 
-    <!-- Declare plugin extensions -->
+    <!-- Extensions -->
     <extensions defaultExtensionNs="com.intellij">
         <!-- Tool window extension -->
-        <toolWindow id="SavePointTool"
-                    factoryClass="org.jetbrains.plugins.savepoint.toolWindow.SavePointToolWindowFactory"
-                    anchor="bottom"/>
+        <toolWindow id="Save Point Tools"
+                    factoryClass="org.anupam.plugins.savepoint.toolWindow.SavePointToolWindowFactory"
+                    icon="/META-INF/pluginIcon.png"
+                    anchor="right"
+                    secondary="true"/>
     </extensions>
-
-    <!-- Define plugin version -->
-    <version>2.0.2</version>
 </idea-plugin>

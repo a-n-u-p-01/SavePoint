@@ -1,4 +1,4 @@
-package org.jetbrains.plugins.savepoint
+package org.anupam.plugins.savepoint
 
 import com.intellij.DynamicBundle
 import org.jetbrains.annotations.NonNls

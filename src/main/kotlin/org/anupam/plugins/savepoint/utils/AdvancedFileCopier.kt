@@ -1,4 +1,4 @@
-package org.jetbrains.plugins.savepoint.utils
+package org.anupam.plugins.savepoint.utils
 
 import java.nio.file.*
 import java.nio.file.attribute.BasicFileAttributes
