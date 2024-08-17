@@ -2,14 +2,12 @@
 
 ## Overview
 
-The **Save Point Plugin** for IntelliJ IDEA is a powerful tool that helps you create and manage snapshots of your project. Whether you're experimenting with new features or just want a secure fallback option, this plugin makes it easy to roll back to previous project states.
+The **Save Point Plugin** for IntelliJ IDEA is a tool that helps you create and manage snapshots of your project. Whether you're experimenting with new features or just want a secure fallback option, this plugin makes it easy to roll back to previous project states.
 
 ---
 
 <!-- Plugin description -->
 ## Features
-
-- **Note**:Before Add Save Point / Commit, save(Ctrl + s) the file first may be auto save not work some time
 
 - **Add**: Create a new save point with a unique name and message. Frequent addition of save points can clutter your project; consider using naming conventions to keep them organized. 
 
@@ -28,16 +26,6 @@ The **Save Point Plugin** for IntelliJ IDEA is a powerful tool that helps you cr
 - **Refresh**: Update the tool window to reflect the latest save points and changes. Refreshing ensures that all save point data is current. Use this feature to synchronize the tool window with recent updates.
 
 <!-- Plugin description end -->
-
-## ✨ Features
-
-- **Create Save Points:** Snapshot your project at any time with custom names and descriptions, providing a secure backup for any stage of your work.
-- **Rollback Save Points:** Effortlessly revert to a previous save point, allowing you to undo changes and recover a stable state of your project.
-- **Undo Rollback:** Quickly restore the project to its state before the last rollback, giving you flexibility in managing your project's evolution.
-- **Delete Save Points:** Remove save points that are no longer needed to keep your project organized.
-- **Tool Window Interface:** Manage all your save points through an intuitive tool window within IntelliJ IDEA.
-- **IDE Refresh:** The IDE automatically refreshes to immediately reflect changes made through the plugin.
-
 ---
 
 ## 🚀 Installation
@@ -51,7 +39,7 @@ The **Save Point Plugin** for IntelliJ IDEA is a powerful tool that helps you cr
 
 ### Manual Installation
 
-1. Download the latest file from the [Download](https://drive.usercontent.google.com/uc?id=1Aq-LyQruCtG_K8P80be9bwQgJwgVwa_p&export=download) || [Download](https://plugins.jetbrains.com/plugin/download?rel=true&updateId=589453)
+1. Download the latest file from the [Download](https://drive.usercontent.google.com/uc?id=1Aq-LyQruCtG_K8P80be9bwQgJwgVwa_p&export=download)
 2. Open IntelliJ IDEA.
 3. Go to **Settings** > **Plugins**.
 4. Click on the **Install Plugin from Disk** button.
