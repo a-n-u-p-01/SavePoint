@@ -11,13 +11,9 @@
     <!-- Plugin description -->
     <description>
         The SavePoint plugin enhances project management by allowing developers to create, view, and manage save points within their projects. Key features include:
-        - Add custom save points with unique names and messages.
-        - Rollback to any previously created save point.
-        - Undo the most recent rollback operation.
-        - Delete save points that are no longer needed.
-        - View and manage all save points through an intuitive tool window interface.
-        - Automatic refresh of the IDE to reflect changes immediately.
     </description>
+
+
 
     <!-- Change notes -->
     <change-notes>
@@ -39,8 +35,9 @@
         <!-- Tool window extension -->
         <toolWindow id="Save Point Tools"
                     factoryClass="org.anupam.plugins.savepoint.toolWindow.SavePointToolWindowFactory"
-                    icon="/META-INF/pluginIcon.png"
+                    icon="/META-INF/icons/commit-git.png"
                     anchor="right"
                     secondary="true"/>
     </extensions>
+<!--    <banner url="/META-INF/pluginIcon.png" alt="Save Point Plugin Banner"/>-->
 </idea-plugin>

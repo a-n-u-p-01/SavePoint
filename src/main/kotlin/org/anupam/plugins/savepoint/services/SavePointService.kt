@@ -1,7 +1,9 @@
 package org.anupam.plugins.savepoint.services
 import com.intellij.openapi.components.Service
+import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
+import com.intellij.openapi.vfs.VirtualFileManager
 import org.anupam.plugins.savepoint.utils.AdvancedFileCopier
 import java.io.*
 import java.nio.file.Files
@@ -9,6 +11,7 @@ import java.nio.file.Path
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.ExecutionException
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.Future
 import java.util.logging.Logger
@@ -19,8 +22,7 @@ class SavePointService(private val project: Project) {
     private val savePointsDir =  getSavePointsDir()
     private val logger: Logger = Logger.getLogger(SavePointService::class.java.name)
     private val fileCopier = AdvancedFileCopier(logger)
-    private val executor = Executors.newSingleThreadExecutor()
-
+    private val executor: ExecutorService = Executors.newSingleThreadExecutor()
 
     init {
         if (!savePointsDir.exists()) {
@@ -35,7 +37,7 @@ class SavePointService(private val project: Project) {
 
     // Back up User.Home ProjectBackup
     fun getProjectBackupDir(): File {
-        val saveProjectName = replaceBackslashes(getProjectRoot().toString())
+        val saveProjectName = sanitizeFolderName(getProjectRoot().toString())
         val backupDirPath = File(System.getProperty("user.home"), "ProjectBackups/${saveProjectName}")
         if (!backupDirPath.exists()) {
             backupDirPath.mkdirs()
@@ -55,7 +57,7 @@ class SavePointService(private val project: Project) {
     fun addSavePoint(name: String, message: String): Boolean {
         val timestamp = getTimestamp()
         val rootDir = getProjectRoot() ?: return false
-        val saveProjectName = replaceBackslashes(rootDir.toString())
+        val saveProjectName = sanitizeFolderName(rootDir.toString())
         val eachProjectDir = File(savePointsDir,saveProjectName)
         val saveDir =File(eachProjectDir,name)
         val messageFile = File(eachProjectDir, "$name.txt")
@@ -67,6 +69,8 @@ class SavePointService(private val project: Project) {
         else saveDir.mkdirs()
 // root -> Save in case of this we are not replacing we are creating
         try {
+            FileDocumentManager.getInstance().saveAllDocuments()
+            VirtualFileManager.getInstance().refreshWithoutFileWatcher(true)
             val future: Future<*> = executor.submit {
                 if(rootDir.exists()){
                     fileCopier.copyDirectory(rootDir.toPath(), saveDir.toPath())
@@ -93,7 +97,7 @@ class SavePointService(private val project: Project) {
     }
 
     fun rollbackToSavePoint(savePointName: String) {
-        val saveProjectName = replaceBackslashes(getProjectRoot().toString())
+        val saveProjectName = sanitizeFolderName(getProjectRoot().toString())
         val eachProjectSave =File(savePointsDir,saveProjectName)
         val timestamp = getTimestamp()
         val rootDir = getProjectRoot() // project itself
@@ -108,6 +112,8 @@ class SavePointService(private val project: Project) {
         val preRollBackFile = File(eachProjectSave,"preRollback")
 // save -> root here replace not create
         try {
+            FileDocumentManager.getInstance().saveAllDocuments()
+            VirtualFileManager.getInstance().refreshWithoutFileWatcher(true)
             // Backup current state before rollback
             val future: Future<*> = executor.submit {
                if (preRollBackFile.exists()){
@@ -132,7 +138,7 @@ class SavePointService(private val project: Project) {
     }
 
     fun undoRollback(): Boolean {
-        val saveProjectName = replaceBackslashes(getProjectRoot().toString())
+        val saveProjectName = sanitizeFolderName(getProjectRoot().toString())
         val eachProjectSave =File(savePointsDir,saveProjectName)
         val rootDir = getProjectRoot()
         val preRollBackDir = File(eachProjectSave, "preRollback")
@@ -208,11 +214,7 @@ private fun deleteFile(file: File) {
             }
 
             try {
-                if (file.delete()) {
-                    println("Successfully deleted: ${file.absolutePath}")
-                } else {
-                    println("Failed to delete: ${file.absolutePath}")
-                }
+               file.delete()
             } catch (e: SecurityException) {
                 println("Security exception deleting file: ${file.absolutePath}, Error: ${e.message}")
             } catch (e: IOException) {
@@ -223,7 +225,7 @@ private fun deleteFile(file: File) {
 
 
     fun getSavePoints(): List<Pair<String, String>> {
-        val saveProjectName = replaceBackslashes(getProjectRoot().toString())
+        val saveProjectName = sanitizeFolderName(getProjectRoot().toString())
         val eachProjectSave = File(savePointsDir, saveProjectName)
 
         return eachProjectSave.listFiles()
@@ -249,7 +251,7 @@ private fun deleteFile(file: File) {
     }
 
     fun deleteSavePoint(name: String):Boolean {
-        val saveProjectName = replaceBackslashes(getProjectRoot().toString())
+        val saveProjectName = sanitizeFolderName(getProjectRoot().toString())
         val eachProjectSave =File(savePointsDir,saveProjectName)
         val saveDir = File(eachProjectSave, name)
         val savePointTxtFile = File(eachProjectSave, "$name.txt")
@@ -277,6 +279,7 @@ private fun deleteFile(file: File) {
         val messageFile = File(backupDir,"message.txt")
 
         try {
+
             if (backupFile.exists()) {
                 backupFile.deleteRecursively()
             }
@@ -284,6 +287,8 @@ private fun deleteFile(file: File) {
             messageFile.writeText("Backup : $timestamp")
 
             // Perform backup in a separate thread to avoid blocking the UI thread
+            FileDocumentManager.getInstance().saveAllDocuments()
+            VirtualFileManager.getInstance().refreshWithoutFileWatcher(true)
             val future: Future<*> = executor.submit {
                 fileCopier.copyDirectory(rootDir.toPath(), backupFile.toPath())
             }
@@ -298,61 +303,56 @@ private fun deleteFile(file: File) {
     }
 
     fun getBackUpFilesAddress(): Pair<String, String> {
-        val saveProjectName = replaceBackslashes(getProjectRoot().toString())
+        val saveProjectName = sanitizeFolderName(getProjectRoot().toString())
         val path1 = "${File(getSavePointsDir(),saveProjectName)}"
         val path2 = "${getProjectBackupDir()}"
         return Pair(path1, path2)
     }
 
-    fun replaceBackslashes(input: String): String {
-        val result = StringBuilder()
-        var i = 0
 
-        while (i < input.length) {
-            if (i + 1 < input.length && input[i] == '\\' && input[i + 1] == '\\') {
-                // Handle double backslashes by appending a single backslash
-                result.append('-')
-                i += 2 // Skip the next backslash
-            } else if (input[i] == '\\') {
-                // Handle single backslashes
-                result.append('-')
-            }
-            else if (input[i] == ':') {
-                // Handle single backslashes
-                result.append('-')
-            }
-            else {
-                // Append all other characters
-                result.append(input[i])
-            }
-            i++
-        }
+//    fun sanitizeFolderName(input: String): String {
+//        return input.replace("\\", "-").toString()
+//            .replace(':', '-')
+//            .replace("//", "-").toString()
+//    }
 
-        return result.toString()
+
+    fun sanitizeFolderName(name: String): String {
+        // Replace restricted characters with underscores
+        return name.replace(Regex("[\\\\/:*?\"<>|]"), "_")
     }
+
 
 
     fun restore(): Boolean {
-        val backupdir = File(getProjectBackupDir(),"backup")
+        val backupDir = File(getProjectBackupDir(), "backup")
         val rootDir = getProjectRoot()
-        if(isDirectoryEmpty(backupdir.toPath())){
-            Messages.showErrorDialog("\nNothing inside of backup folder $backupdir", "Failed to restore project! ${project.name}")
+//    preRollBack -> root
+        try {
+            if (rootDir != null) {
+                deleteDirectoryContents(rootDir)
+            }
+
+            val future: Future<*> = executor.submit {
+                rootDir?.let {
+                    fileCopier.copyDirectory(backupDir.toPath(), it.toPath())
+                }
+                return@submit
+            }
+            future.get() // Wait for the task to complete
+            return true
+        } catch (e: IOException) {
+            Messages.showErrorDialog("Failed to undo restore: ${e.message}", "Error")
+            return false
+        } catch (e: InterruptedException) {
+            Messages.showErrorDialog("Undo restore was interrupted.", "Error")
+            return false
+        } catch (e: ExecutionException) {
+            Messages.showErrorDialog("Failed to undo restore: ${e.message}", "Error")
             return false
         }
-        if (rootDir != null) {
-            deleteDirectoryContents(rootDir)
-        }
-// backupdir -> rootDir
-        try {
-            val future: Future<*> = executor.submit {
-                rootDir?.let { fileCopier.copyDirectory(backupdir.toPath(), it.toPath()) }
-            }
-            future.get()
-        }catch (e: IOException){
-            throw Exception(e)
-        }
-            return true
     }
+
 
     private fun isDirectoryEmpty(dirPath: Path): Boolean {
         if (Files.exists(dirPath) && Files.isDirectory(dirPath)) {

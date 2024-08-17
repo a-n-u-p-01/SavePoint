@@ -19,7 +19,7 @@ import javax.swing.*
 class SavePointToolWindowFactory : ToolWindowFactory {
 
     override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
-        val icon = IconLoader.getIcon("META-INF/pluginIcon.png", this.javaClass)
+        val icon = IconLoader.getIcon("META-INF/icons/commit-git.png", this.javaClass)
         toolWindow.setIcon(icon)
 
         val content = SavePointToolWindow(project).getContent()
@@ -57,39 +57,7 @@ class SavePointToolWindowFactory : ToolWindowFactory {
                 layout = BoxLayout(this, BoxLayout.Y_AXIS)
                 layout = BoxLayout(this,BoxLayout.PAGE_AXIS)
 
-                add(JButton("Save Points          ").apply {
-                    icon = AllIcons.Actions.ShowAsTree
-                    addActionListener {
-                        try {
-                            val savePoints = savePointService.getSavePoints()
-                            if(savePoints.isEmpty()){
-                                Messages.showInfoMessage("Do not have any save point", "Information")
-                                return@addActionListener
-                            }
-                            val savePointNames = savePoints.map { "${it.first} - ${it.second.substringBefore('\n')}" }.toTypedArray()
-                            val selectedName = Messages.showEditableChooseDialog(
-                                "Select a save point to get Information",
-                                "Show Save Point",
-                                Messages.getQuestionIcon(),
-                                savePointNames,
-                                savePointNames.firstOrNull(),
-                                null
-                            )?.trim() ?: return@addActionListener
-
-                            val selectedSavePoint = savePoints.find { "${it.first} - ${it.second.substringBefore('\n')}" == selectedName }
-                            selectedSavePoint?.let {
-                                Messages.showInfoMessage(project, "${it.first}\n Comment: ${it.second}", "Save Point Info")
-                            } ?: run {
-                                Messages.showErrorDialog("Selected save point was not found.", "Error")
-                            }
-                        } catch (e: Exception) {
-                            Messages.showErrorDialog("An error occurred while fetching save points: ${e.message}", "Error")
-                        }
-                    }
-                })
-
-
-                add(JButton("Add Save Point    ").apply {
+                add(JButton("Add                      ").apply {
                     icon = AllIcons.Actions.Commit
                     addActionListener {
                         try {
@@ -127,36 +95,47 @@ class SavePointToolWindowFactory : ToolWindowFactory {
                     }
                 })
 
-                add(JButton("Delete                 ").apply {
+                add(JButton("Remove                ").apply {
                     icon = AllIcons.Actions.RemoveMulticaret
                     addActionListener {
                         try {
                             val savePoints = savePointService.getSavePoints()
-                            if(savePoints.isEmpty()){
-                                Messages.showInfoMessage("Do not have any save point", "Information")
+
+                            if (savePoints.isEmpty()) {
+                                Messages.showInfoMessage("No save points available.", "Information")
                                 return@addActionListener
                             }
 
-                            val savePointNames = savePoints.map { "${it.first} - ${it.second.substringBefore('\n')}" }.toTypedArray()
+                            // Sort save points by time in descending order (latest first)
+                            val sortedSavePoints = savePoints.sortedByDescending { it.second }
+
+                            // Create display names without numbering
+                            val savePointNames = sortedSavePoints
+                                .map { "${it.first} - ${it.second.substringBefore('\n')}" }
+                                .toTypedArray()
+
+                            // Show the editable choose dialog
                             val selectedName = Messages.showEditableChooseDialog(
-                                "Select a save point for delete",
-                                "Delete Save Point",
+                                "Select a save point to remove",
+                                "Remove Save Point",
                                 Messages.getQuestionIcon(),
                                 savePointNames,
                                 savePointNames.firstOrNull(), // Default value if the list is not empty
                                 null
-                            )?.trim() ?: run {
-                                return@addActionListener
-                            }
+                            )?.trim() ?: return@addActionListener
 
+                            // Find the index of the selected name in the displayed names
+                            val selectedIndex = savePointNames.indexOfFirst { it.startsWith(selectedName) }
 
-                            val selectedSavePoint = savePoints.find { "${it.first} - ${it.second.substringBefore('\n')}" == selectedName }
-                            if (selectedSavePoint != null) {
+                            // Ensure we have a valid index and select the corresponding save point
+                            if (selectedIndex != -1) {
+                                val selectedSavePoint = sortedSavePoints[selectedIndex]
+
                                 val name = selectedSavePoint.first
                                 val confirmation = Messages.showOkCancelDialog(
                                     project,
-                                    "Are you sure you want to delete the save point '$name'?",
-                                    "Confirm Deletion",
+                                    "Are you sure you want to remove the save point '$name'?",
+                                    "Confirm Removal",
                                     "Yes",
                                     "No",
                                     Messages.getWarningIcon()
@@ -164,7 +143,9 @@ class SavePointToolWindowFactory : ToolWindowFactory {
 
                                 if (confirmation == Messages.OK) {
                                     if (savePointService.deleteSavePoint(name)) {
-                                        showSuccessMessage("Save point '$name' deleted successfully.")
+                                        showSuccessMessage("Save point '$name' removed successfully.")
+                                    } else {
+                                        Messages.showErrorDialog("Failed to remove the save point '$name'.", "Error")
                                     }
                                 }
                             } else {
@@ -178,43 +159,113 @@ class SavePointToolWindowFactory : ToolWindowFactory {
                     }
                 })
 
-
-                add(JButton("Rollback               ").apply {
-                    icon =  AllIcons.Actions.Rollback
+                add(JButton("Save Points          ").apply {
+                    icon = AllIcons.Actions.ShowAsTree
                     addActionListener {
                         try {
                             val savePoints = savePointService.getSavePoints()
-                            if(savePoints.isEmpty()){
-                                Messages.showInfoMessage("Do not have any save point", "Information")
+
+                            if (savePoints.isEmpty()) {
+                                Messages.showInfoMessage("No save points available.", "Information")
                                 return@addActionListener
                             }
-                            val savePointNames = savePoints.map { "${it.first} - ${it.second.substringBefore('\n')}" }.toTypedArray()
+
+                            // Sort save points by time in descending order (latest first)
+                            val sortedSavePoints = savePoints.sortedByDescending { it.second }
+
+                            // Create display names without numbering
+                            val savePointNames = sortedSavePoints
+                                .map { "${it.first} - ${it.second.substringBefore('\n')}" }
+                                .toTypedArray()
+
+                            // Show the editable choose dialog
                             val selectedName = Messages.showEditableChooseDialog(
-                                "Select a save point to RollBack",
-                                "Rollback",
+                                "Select a save point to view details",
+                                "Show Save Point",
                                 Messages.getQuestionIcon(),
                                 savePointNames,
                                 savePointNames.firstOrNull(),
                                 null
                             )?.trim() ?: return@addActionListener
 
-                            val selectedSavePoint = savePoints.find { "${it.first} - ${it.second.substringBefore('\n')}" == selectedName }
-                                ?: run {
-                                    Messages.showErrorDialog("Selected save point was not found.", "Error")
-                                    return@addActionListener
-                                }
-                            val confirm =   Messages.showOkCancelDialog(
-                                project,
-                                "Are you sure you want to roll back to the save point '$selectedName'?",
-                                "Confirm Rollback",
-                                Messages.getOkButton(),
-                                Messages.getCancelButton(),
-                                Messages.getQuestionIcon()
+                            // Find the index of the selected name in the displayed names
+                            val selectedIndex = savePointNames.indexOfFirst { it.startsWith(selectedName) }
+
+                            // Ensure we have a valid index and select the corresponding save point
+                            if (selectedIndex != -1) {
+                                val selectedSavePoint = sortedSavePoints[selectedIndex]
+
+                                // Show information about the selected save point
+                                Messages.showInfoMessage(
+                                    project,
+                                    "${selectedSavePoint.first}\nComment: ${selectedSavePoint.second}",
+                                    "Save Point Info"
+                                )
+                            } else {
+                                Messages.showErrorDialog("Selected save point was not found.", "Error")
+                            }
+                        } catch (e: Exception) {
+                            Messages.showErrorDialog(
+                                "An error occurred while fetching save points: ${e.message}",
+                                "Error"
                             )
-                            if (confirm == Messages.OK) {
-                                savePointService.rollbackToSavePoint(selectedSavePoint.first)
-                                VirtualFileManager.getInstance().refreshWithoutFileWatcher(true)
-                                showSuccessMessage("Rollback to save point '$selectedName' was successful.")
+                        }
+                    }
+                })
+
+                add(JButton("Rollback               ").apply {
+                    icon = AllIcons.Actions.Rollback
+                    addActionListener {
+                        try {
+                            val savePoints = savePointService.getSavePoints()
+
+                            if (savePoints.isEmpty()) {
+                                Messages.showInfoMessage("No save points available.", "Information")
+                                return@addActionListener
+                            }
+
+                            // Sort save points by time in descending order (latest first)
+                            val sortedSavePoints = savePoints.sortedByDescending { it.second }
+
+                            // Create display names without numbering
+                            val savePointNames = sortedSavePoints
+                                .map { "${it.first} - ${it.second.substringBefore('\n')}" }
+                                .toTypedArray()
+
+                            // Show the editable choose dialog
+                            val selectedName = Messages.showEditableChooseDialog(
+                                "Select a save point to Rollback",
+                                "Rollback",
+                                Messages.getQuestionIcon(),
+                                savePointNames,
+                                savePointNames.firstOrNull(), // Default value if the list is not empty
+                                null
+                            )?.trim() ?: return@addActionListener
+
+                            // Find the index of the selected name in the displayed names
+                            val selectedIndex = savePointNames.indexOfFirst { it.startsWith(selectedName) }
+
+                            // Ensure we have a valid index and select the corresponding save point
+                            if (selectedIndex != -1) {
+                                val selectedSavePoint = sortedSavePoints[selectedIndex]
+
+                                val name = selectedSavePoint.first
+                                val confirm = Messages.showOkCancelDialog(
+                                    project,
+                                    "Are you sure you want to roll back to the save point '$name'? This will revert to the selected save point and discard the current changes. You can undo this rollback, but only once, and multiple rollbacks will only allow undoing the most recent one.",
+                                    "Confirm Rollback",
+                                    Messages.getOkButton(),
+                                    Messages.getCancelButton(),
+                                    Messages.getQuestionIcon()
+                                )
+
+                                if (confirm == Messages.OK) {
+                                    savePointService.rollbackToSavePoint(name)
+                                    VirtualFileManager.getInstance().refreshWithoutFileWatcher(true)
+                                    showSuccessMessage("Rollback to save point '$name' was successful. If changes does not reflect then please restart the IDE.")
+                                }
+                            } else {
+                                Messages.showErrorDialog("Selected save point was not found.", "Error")
                             }
                         } catch (e: Exception) {
                             Messages.showErrorDialog("An error occurred while rolling back: ${e.message}", "Error")
@@ -222,10 +273,11 @@ class SavePointToolWindowFactory : ToolWindowFactory {
                     }
                 })
 
-                add(JButton("Undo Rollback     ").apply {
+
+                add(JButton("Undo Rollback      ").apply {
                     icon = AllIcons.Actions.Undo
                     addActionListener {
-                        val saveProjectName = savePointService.replaceBackslashes(savePointService.getProjectRoot().toString())
+                        val saveProjectName = savePointService.sanitizeFolderName(savePointService.getProjectRoot().toString())
                         val eachI = File(getSavePointsDir(),saveProjectName)
                         val preRollBackFile = File(eachI, "preRollback")
                         val confirm: Int
@@ -246,7 +298,7 @@ class SavePointToolWindowFactory : ToolWindowFactory {
                         if (confirm == Messages.OK) {
                             try {
                                 if (savePointService.undoRollback()) {
-                                    showSuccessMessage("Undo rollback was successful.")
+                                    showSuccessMessage("Undo rollback was successful. If changes does not reflect then please restart the IDE")
                                     VirtualFileManager.getInstance().refreshWithoutFileWatcher(true)
                                 } else {
                                     Messages.showErrorDialog("Undo rollback failed.", "Error")
@@ -260,12 +312,12 @@ class SavePointToolWindowFactory : ToolWindowFactory {
 
 
 
-                add(JButton("Backup                ").apply {
+                add(JButton("Commit                 ").apply {
                     icon = AllIcons.Actions.Upload
                     addActionListener {
                         val confirmation = Messages.showOkCancelDialog(
                             project,
-                            "Are you sure you want to Backup the project'${project.name}'?",
+                            "Are you sure you want to commit the project '${project.name}'? This action will permanently save all your recent changes and updates. Review your changes carefully before proceeding, as this action cannot be undone",
                             "Confirm Backup",
                             "Yes",
                             "No",
@@ -279,59 +331,66 @@ class SavePointToolWindowFactory : ToolWindowFactory {
                 })
 
 
-                add(JButton("Restore                ").apply {
+                add(JButton("Restore                 ").apply {
                     icon = AllIcons.Actions.Install
                     addActionListener {
+                        val backupMessage = File(savePointService.getProjectBackupDir(), "message.txt")
+                        val backupDir = File(savePointService.getProjectBackupDir(), "backup")
 
-                      val lastBackupTime = File(savePointService.getProjectBackupDir(), "message.txt").readText()
-                        val backupDir = File(savePointService.getProjectBackupDir(),"backup")
+                        if (backupDir.exists()) {
+                            if (!backupMessage.exists()) {
+                                backupMessage.writeText("Last Time backup")
+                                Messages.showInfoMessage("Nothing to backup", "Operation Failed")
+                                return@addActionListener
+                            }
 
-                        if(backupDir.exists()) {
+                            VirtualFileManager.getInstance().refreshWithoutFileWatcher(true)
+
+                            val lastBackupTime = backupMessage.readText()
                             val confirmation = Messages.showOkCancelDialog(
                                 project,
-                                "Are you sure you want to restore project '$name' backup? \n Last Time Backed up At : $lastBackupTime",
+                                "Are you sure you want to restore project '${project.name}'? This will retrieve the state from the commit and overwrite the current state. \n Last Time $lastBackupTime",
                                 "Confirm Restore",
                                 "Yes",
                                 "No",
                                 Messages.getQuestionIcon(),
                             )
-                            if (confirmation == Messages.OK){
+
+                            if (confirmation == Messages.OK) {
                                 try {
-                                    if(savePointService.restore()){
+                                    if (savePointService.restore()) {
                                         VirtualFileManager.getInstance().refreshWithoutFileWatcher(true)
-                                        showSuccessMessage(" ${project.name} -> Restored successfully.")
+                                        showSuccessMessage(" ${project.name} -> Restored successfully. If changes do not reflect, please restart the IDE.")
                                     }
                                 } catch (e: Exception) {
-                                    Messages.showErrorDialog(" : ${project.name}", "Operation Failed")
+                                    Messages.showErrorDialog("Error during restore: ${e.message}", "Operation Failed")
                                 }
                             }
-                        }
-                        else{
-                            Messages.showInfoMessage("No backup found for project: ${project.name}", "Backup Missing")
+                        } else {
+                            Messages.showInfoMessage("No commit found for project: ${project.name}", "Have not committed yet!")
                         }
                     }
                 })
 
 
-                add(JButton("Path                     ").apply {
+                add(JButton("Path                      ").apply {
                     icon = AllIcons.Actions.Preview
                     addActionListener {
                         // Retrieve the file paths
-                        val saveProjectName = savePointService.replaceBackslashes(savePointService.getProjectRoot().toString())
+                        val saveProjectName = savePointService.sanitizeFolderName(savePointService.getProjectRoot().toString())
                         val (path1, path2) = savePointService.getBackUpFilesAddress()
 
                         // Display the file paths in a popup window with each path on a separate line
-                        Messages.showInfoMessage("1.Saved Points Path:\n '$path1' \n\n2.Backup Project File Directory:\n '$path2'\n\n Saved Name of Project : '$saveProjectName'","Info")
+                        Messages.showInfoMessage("1. Saved Name of Project : [$saveProjectName]\n\n2. Saved Points Path:\n [$path1] \n\n3.Commited Project File Directory:\n [$path2]","Info")
                     }
                 })
 
-                add(JButton("Refresh                ").apply {
+                add(JButton("Refresh                 ").apply {
                     toolTipText = "Refresh"
                     icon = AllIcons.Actions.BuildLoadChanges
                     addActionListener {
                         try {
                             VirtualFileManager.getInstance().refreshWithoutFileWatcher(true)
-                            showSuccessMessage("IDE refreshed successfully.")
                         } catch (e: Exception) {
                             Messages.showErrorDialog("An error occurred while refreshing: ${e.message}", "Error")
                         }
