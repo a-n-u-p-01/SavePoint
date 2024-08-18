@@ -1,6 +1,8 @@
 package org.anupam.plugins.savepoint.toolWindow
 
 import com.intellij.icons.AllIcons
+import com.intellij.notification.NotificationGroupManager
+import com.intellij.notification.NotificationType
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
@@ -19,7 +21,7 @@ import javax.swing.*
 class SavePointToolWindowFactory : ToolWindowFactory {
 
     override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
-        val icon = IconLoader.getIcon("META-INF/icons/commit-git.png", this.javaClass)
+        val icon = IconLoader.getIcon("META-INF/icons/pluginIcon.png", this.javaClass)
         toolWindow.setIcon(icon)
 
         val content = SavePointToolWindow(project).getContent()
@@ -85,10 +87,7 @@ class SavePointToolWindowFactory : ToolWindowFactory {
 
                             if (savePointService.addSavePoint(name, message)) {
                                 showSuccessMessage("Save point '$name' added successfully.")
-                            } else {
-                                Messages.showErrorDialog("Failed to add save point.", "Error")
                             }
-
                         } catch (e: Exception) {
                             Messages.showErrorDialog("An error occurred while adding the save point: ${e.message}", "Error")
                         }
@@ -324,54 +323,14 @@ class SavePointToolWindowFactory : ToolWindowFactory {
                             Messages.getQuestionIcon()
                         )
                         if (confirmation == Messages.OK) {
+                            NotificationGroupManager.getInstance().getNotificationGroup("Custom Notifications")
+                                .createNotification("Refresh completed successfully.", NotificationType.INFORMATION)
+                                .notify(null)
                             savePointService.backupProject()
-                            showSuccessMessage("Project backup successfully.\n Time : ${savePointService.getTimestamp()}")
+                            showSuccessMessage("${project.name} Commited successfully.\n Time : ${savePointService.getTimestamp()}")
                         }
                     }
                 })
-
-
-                add(JButton("Restore                 ").apply {
-                    icon = AllIcons.Actions.Install
-                    addActionListener {
-                        val backupMessage = File(savePointService.getProjectBackupDir(), "message.txt")
-                        val backupDir = File(savePointService.getProjectBackupDir(), "backup")
-
-                        if (backupDir.exists()) {
-                            if (!backupMessage.exists()) {
-                                backupMessage.writeText("Last Time backup")
-                                Messages.showInfoMessage("Nothing to backup", "Operation Failed")
-                                return@addActionListener
-                            }
-
-                            VirtualFileManager.getInstance().refreshWithoutFileWatcher(true)
-
-                            val lastBackupTime = backupMessage.readText()
-                            val confirmation = Messages.showOkCancelDialog(
-                                project,
-                                "Are you sure you want to restore project '${project.name}'? This will retrieve the state from the commit and overwrite the current state. \n Last Time $lastBackupTime",
-                                "Confirm Restore",
-                                "Yes",
-                                "No",
-                                Messages.getQuestionIcon(),
-                            )
-
-                            if (confirmation == Messages.OK) {
-                                try {
-                                    if (savePointService.restore()) {
-                                        VirtualFileManager.getInstance().refreshWithoutFileWatcher(true)
-                                        showSuccessMessage(" ${project.name} -> Restored successfully. If changes do not reflect, please restart the IDE.")
-                                    }
-                                } catch (e: Exception) {
-                                    Messages.showErrorDialog("Error during restore: ${e.message}", "Operation Failed")
-                                }
-                            }
-                        } else {
-                            Messages.showInfoMessage("No commit found for project: ${project.name}", "Have not committed yet!")
-                        }
-                    }
-                })
-
 
                 add(JButton("Path                      ").apply {
                     icon = AllIcons.Actions.Preview
@@ -381,7 +340,7 @@ class SavePointToolWindowFactory : ToolWindowFactory {
                         val (path1, path2) = savePointService.getBackUpFilesAddress()
 
                         // Display the file paths in a popup window with each path on a separate line
-                        Messages.showInfoMessage("1. Saved Name of Project : [$saveProjectName]\n\n2. Saved Points Path:\n [$path1] \n\n3.Commited Project File Directory:\n [$path2]","Info")
+                        Messages.showInfoMessage("1. Saved Name of Project : [$saveProjectName]\n\n2. Saved Points Path:\n [$path1] \n\n3.Final Project File Directory:\n [$path2]","Info")
                     }
                 })
 
@@ -391,12 +350,26 @@ class SavePointToolWindowFactory : ToolWindowFactory {
                     addActionListener {
                         try {
                             VirtualFileManager.getInstance().refreshWithoutFileWatcher(true)
+
+                            // Create the notification
+                            val notification = NotificationGroupManager.getInstance()
+                                .getNotificationGroup("Custom Notifications")
+                                .createNotification("Refresh completed successfully.", NotificationType.INFORMATION)
+
+                            // Show the notification
+                            notification.notify(null)
+
+                            // Set a timer to expire the notification after 2 seconds
+                            Timer(1000) {
+                                notification.expire()  // Hides the notification after 2 seconds
+                            }.start()
+
                         } catch (e: Exception) {
+                            // Show error message if an exception occurs
                             Messages.showErrorDialog("An error occurred while refreshing: ${e.message}", "Error")
                         }
                     }
                 })
-
 
             }
         }

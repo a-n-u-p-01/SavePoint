@@ -38,7 +38,7 @@ class SavePointService(private val project: Project) {
     // Back up User.Home ProjectBackup
     fun getProjectBackupDir(): File {
         val saveProjectName = sanitizeFolderName(getProjectRoot().toString())
-        val backupDirPath = File(System.getProperty("user.home"), "ProjectBackups/${saveProjectName}")
+        val backupDirPath = File(System.getProperty("user.home"), "FinalProjectFile")
         if (!backupDirPath.exists()) {
             backupDirPath.mkdirs()
         }
@@ -54,17 +54,49 @@ class SavePointService(private val project: Project) {
     }
 
 
+    fun isValidFolderName(name: String?): Boolean {
+        if (name.isNullOrBlank()) {
+            return false
+        }
+
+        // Check for restricted characters
+        val restrictedChars = Regex("[\\\\/:*?\"<>|]")
+        if (restrictedChars.containsMatchIn(name)) {
+            return false
+        }
+
+        // Check for reserved names on Windows
+        val reservedNames = listOf(
+            "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+            "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
+        )
+        if (reservedNames.contains(name.uppercase())) {
+            return false
+        }
+
+        // Check for maximum length (255 characters)
+        if (name.length > 255) {
+            return false
+        }
+
+        // Additional checks can be added here for specific OS restrictions
+
+        return true
+    }
+
+
     fun addSavePoint(name: String, message: String): Boolean {
+        if (!isValidFolderName(name)) {
+            throw IllegalArgumentException("Invalid folder name: \"$name\". Folder names must not be empty, cannot contain restricted characters (\\ / : * ? \" < > |), cannot use reserved names (e.g., CON, PRN), and must be 255 characters or fewer.")
+        }
         val timestamp = getTimestamp()
         val rootDir = getProjectRoot() ?: return false
         val saveProjectName = sanitizeFolderName(rootDir.toString())
         val eachProjectDir = File(savePointsDir,saveProjectName)
         val saveDir =File(eachProjectDir,name)
         val messageFile = File(eachProjectDir, "$name.txt")
-
         if (saveDir.exists()) {
-            Messages.showErrorDialog("Save point '$name' already exists.", "Error")
-            return false
+            throw Exception("Save point '$name' already exists.")
         }
         else saveDir.mkdirs()
 // root -> Save in case of this we are not replacing we are creating
@@ -79,21 +111,13 @@ class SavePointService(private val project: Project) {
                     deleteFile(File(eachProjectDir,"preRollback"))
                     File(eachProjectDir, "preRollback.txt").delete()
                 }
-
             }
             messageFile.writeText("$timestamp\n$message")
             future.get() // Wait for the task to complete
-        } catch (e: IOException) {
-            Messages.showErrorDialog("Failed to create save point: ${e.message}", "Error")
-            return false
-        } catch (e: InterruptedException) {
-            Messages.showErrorDialog("Save point creation was interrupted.", "Error")
-            return false
-        } catch (e: ExecutionException) {
-            Messages.showErrorDialog("Failed to create save point: ${e.message}", "Error")
-            return false
+            return true
+        } catch (e: Exception) {
+            throw Exception("Something Went Wrong.. -> $e")
         }
-        return true
     }
 
     fun rollbackToSavePoint(savePointName: String) {
@@ -272,10 +296,10 @@ private fun deleteFile(file: File) {
             Messages.showErrorDialog("Failed to get project root.", "Error")
             return
         }
-
+        val saveProjectName = sanitizeFolderName(getProjectRoot().toString())
         val timestamp = getTimestamp()
-        val backupDir = getProjectBackupDir()
-        val backupFile = File(backupDir, "backup")
+        val backupDir = File(getProjectBackupDir() , saveProjectName)
+        val backupFile =File(backupDir , "Final")
         val messageFile = File(backupDir,"message.txt")
 
         try {
@@ -305,62 +329,14 @@ private fun deleteFile(file: File) {
     fun getBackUpFilesAddress(): Pair<String, String> {
         val saveProjectName = sanitizeFolderName(getProjectRoot().toString())
         val path1 = "${File(getSavePointsDir(),saveProjectName)}"
-        val path2 = "${getProjectBackupDir()}"
+        val path2 = "${File(getProjectBackupDir(),saveProjectName)}"
         return Pair(path1, path2)
     }
-
-
-//    fun sanitizeFolderName(input: String): String {
-//        return input.replace("\\", "-").toString()
-//            .replace(':', '-')
-//            .replace("//", "-").toString()
-//    }
 
 
     fun sanitizeFolderName(name: String): String {
         // Replace restricted characters with underscores
         return name.replace(Regex("[\\\\/:*?\"<>|]"), "_")
-    }
-
-
-
-    fun restore(): Boolean {
-        val backupDir = File(getProjectBackupDir(), "backup")
-        val rootDir = getProjectRoot()
-//    preRollBack -> root
-        try {
-            if (rootDir != null) {
-                deleteDirectoryContents(rootDir)
-            }
-
-            val future: Future<*> = executor.submit {
-                rootDir?.let {
-                    fileCopier.copyDirectory(backupDir.toPath(), it.toPath())
-                }
-                return@submit
-            }
-            future.get() // Wait for the task to complete
-            return true
-        } catch (e: IOException) {
-            Messages.showErrorDialog("Failed to undo restore: ${e.message}", "Error")
-            return false
-        } catch (e: InterruptedException) {
-            Messages.showErrorDialog("Undo restore was interrupted.", "Error")
-            return false
-        } catch (e: ExecutionException) {
-            Messages.showErrorDialog("Failed to undo restore: ${e.message}", "Error")
-            return false
-        }
-    }
-
-
-    private fun isDirectoryEmpty(dirPath: Path): Boolean {
-        if (Files.exists(dirPath) && Files.isDirectory(dirPath)) {
-            Files.list(dirPath).use { stream ->
-                return !stream.iterator().hasNext()
-            }
-        }
-        return false
     }
 
 }

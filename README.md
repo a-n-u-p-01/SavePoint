@@ -43,7 +43,7 @@ The **Save Point Plugin** for IntelliJ IDEA is a tool that helps you create and 
 2. Open IntelliJ IDEA.
 3. Go to **Settings** > **Plugins**.
 4. Click on the **Install Plugin from Disk** button.
-5. Select the downloaded `.jar` file and click **OK**.
+5. Select the downloaded `.zip` file and click **OK**.
 6. Restart IntelliJ IDEA if prompted.
 
 ---

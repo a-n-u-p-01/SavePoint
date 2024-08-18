@@ -35,9 +35,11 @@
         <!-- Tool window extension -->
         <toolWindow id="Save Point Tools"
                     factoryClass="org.anupam.plugins.savepoint.toolWindow.SavePointToolWindowFactory"
-                    icon="/META-INF/icons/commit-git.png"
+                    icon="/META-INF/icons/pluginIcon.png"
                     anchor="right"
                     secondary="true"/>
+        <notificationGroup id="Custom Notifications"
+                           displayType="BALLOON"
+                           isLogByDefault="true"/>
     </extensions>
-<!--    <banner url="/META-INF/pluginIcon.png" alt="Save Point Plugin Banner"/>-->
 </idea-plugin>
