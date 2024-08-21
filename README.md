@@ -21,7 +21,7 @@ The **Save Point Plugin** for IntelliJ IDEA is a tool that helps you create and 
 
 - **Commit**: Save changes to the current save point. This updates the save point with new changes. Verify that the save point reflects the desired state of the project before committing.
 
-- **Path**: Specify the path to the save point location. Incorrect path configuration may result in failed operations, so ensure the path settings are accurate.
+- **Path**: Specify the path to the save point location.
 
 - **Refresh**: Update the tool window to reflect the latest save points and changes. Refreshing ensures that all save point data is current. Use this feature to synchronize the tool window with recent updates.
 
@@ -39,7 +39,7 @@ The **Save Point Plugin** for IntelliJ IDEA is a tool that helps you create and 
 
 ### Manual Installation
 
-1. Download the latest file from the [Download](https://drive.usercontent.google.com/uc?id=1Aq-LyQruCtG_K8P80be9bwQgJwgVwa_p&export=download)
+1. Download the latest file from [GET](https://plugins.jetbrains.com/plugin/25114-save-point?noRedirect=true).
 2. Open IntelliJ IDEA.
 3. Go to **Settings** > **Plugins**.
 4. Click on the **Install Plugin from Disk** button.
